@@ -1,11 +1,44 @@
-# YAML 파일 일부 예시 (추후 회사 프로젝트 적용 시)
-- name: Unity Build
-  uses: game-ci/unity-builder@v4
-  env:
-    UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-    UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
-    UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-  with:
-    targetPlatform: iOS
-    # 유니티에 C#으로 미리 짜둔 커스텀 빌드 함수를 호출하도록 지정
-    buildMethod: MyCompany.Builder.BuildIOS
+name: Unity iOS Build
+
+on:
+  push:
+    branches:
+      - main # main 브랜치에 코드가 올라갈 때마다 실행
+
+jobs:
+  buildiOS:
+    name: Build for iOS
+    runs-on: macos-latest # 애플 macOS 서버 사용 (퍼블릭에선 무제한 무료)
+    
+    steps:
+      # 1. 저장소의 코드를 서버로 내려받음
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true # 프로젝트에 LFS를 쓴다면 true
+
+      # 2. 유니티 캐시를 활용해 다음 빌드 속도 단축
+      - name: Cache Unity Library
+        uses: actions/cache@v3
+        with:
+          path: Library
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-
+
+      # 3. GameCI 빌더를 이용해 iOS 프로젝트(Xcode) 추출
+      - name: Unity Build
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: iOS
+
+      # 4. 빌드된 결과물을 GitHub 다운로드 링크(Artifact)로 제공
+      - name: Upload Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: iOS-Xcode-Project
+          path: build/iOS
